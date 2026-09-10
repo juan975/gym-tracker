@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-base: #e0e5ec;
+  --color-text-dark: #2d3748;
+  --color-text-muted: #8a94a6;
+  --font-sans: 'Poppins', sans-serif;
+}
+
+body {
+  background-color: #e0e5ec;
+  color: #2d3748;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+}
+
+/* Elemento elevado (cards, botones) */
+.neu-raised {
+  background: #e0e5ec;
+  box-shadow: 
+    9px 9px 18px #b8bcc2,
+    -9px -9px 18px #ffffff;
+  border-radius: 20px;
+}
+
+/* Elemento hundido (inputs, contenedores internos) */
+.neu-inset {
+  background: #e0e5ec;
+  box-shadow: 
+    inset 6px 6px 12px #b8bcc2,
+    inset -6px -6px 12px #ffffff;
+  border-radius: 20px;
+}
+
+/* Botón presionable */
+.neu-button {
+  background: #e0e5ec;
+  box-shadow: 
+    6px 6px 12px #b8bcc2,
+    -6px -6px 12px #ffffff;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.neu-button:active {
+  box-shadow: 
+    inset 5px 5px 10px #b8bcc2,
+    inset -5px -5px 10px #ffffff;
+}
+
+/* Estado activo (nav) */
+.neu-active {
+  box-shadow: 
+    inset 5px 5px 10px #b8bcc2,
+    inset -5px -5px 10px #ffffff;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
