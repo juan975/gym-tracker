@@ -1,13 +1,60 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Check, Flag } from 'lucide-react'
-import { db, type SetRegistrado } from '../db/database'
+import { ArrowLeft, Check, Flag, AlertTriangle } from 'lucide-react'
+import { db } from '../db/database'
 import PesoScroll from '../components/PesoScroll'
 import { getRangoPeso } from '../utils/pesoRango'
 import RepsScroll from '../components/RepsScroll'
 import { getRepsObjetivo } from '../utils/repsRango'
 
+// ---- Tipos para el cache en memoria ----
+interface SetCache {
+  peso: number
+  reps: number
+  completado: boolean
+}
+
+type SetsMap = Record<string, SetCache>  // key: "ejercicioId-numeroSet"
+
+function makeSetKey(ejercicioId: number, numeroSet: number) {
+  return `${ejercicioId}-${numeroSet}`
+}
+
+// ---- SessionStorage helpers ----
+function getStorageKey(rutinaId: number, sesionIdParam: string | null) {
+  return `sesion-activa-${rutinaId}${sesionIdParam ? `-${sesionIdParam}` : ''}`
+}
+
+function guardarEnStorage(key: string, data: SetsMap) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(data))
+  } catch {
+    // sessionStorage lleno o no disponible — ignoramos
+  }
+}
+
+function cargarDeStorage(key: string): SetsMap | null {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (raw) return JSON.parse(raw)
+  } catch {
+    // parse error — ignoramos
+  }
+  return null
+}
+
+function limpiarStorage(key: string) {
+  try {
+    sessionStorage.removeItem(key)
+  } catch {
+    // ignoramos
+  }
+}
+
+// ============================================================
+// Componente principal
+// ============================================================
 export default function SesionActiva() {
   const { rutinaId: rutinaIdParam } = useParams()
   const [searchParams] = useSearchParams()
@@ -15,17 +62,31 @@ export default function SesionActiva() {
   const rutinaId = Number(rutinaIdParam)
   const sesionIdParam = searchParams.get('sesionId')
 
-  const [sesionId, setSesionId] = useState<number | null>(
-    sesionIdParam ? Number(sesionIdParam) : null
-  )
+  const storageKey = getStorageKey(rutinaId, sesionIdParam)
 
+  // Cache de sets en memoria
+  const [setsCache, setSetsCache] = useState<SetsMap>(() => {
+    return cargarDeStorage(storageKey) ?? {}
+  })
+
+  // Para la sesión personalizada, necesitamos el sesionId original para leer ejerciciosSesion
+  const sesionIdParaEjercicios = sesionIdParam ? Number(sesionIdParam) : null
+
+  // Modal de confirmación de salida
+  const [mostrarModalSalida, setMostrarModalSalida] = useState(false)
+
+  // Flag para saber si hay datos en el cache
+  const hayDatos = Object.keys(setsCache).length > 0
+
+  // ---- Datos de la rutina ----
   const rutina = useLiveQuery(() => db.rutinas.get(rutinaId), [rutinaId])
 
-  const sesionActual = useLiveQuery(async () => {
-    if (!sesionId) return undefined
-    return await db.sesiones.get(sesionId)
-  }, [sesionId])
-  const esPersonalizada = sesionActual?.personalizada ?? false
+  // Para sesiones personalizadas, cargar la sesión existente
+  const sesionPersonalizada = useLiveQuery(async () => {
+    if (!sesionIdParaEjercicios) return undefined
+    return await db.sesiones.get(sesionIdParaEjercicios)
+  }, [sesionIdParaEjercicios])
+  const esPersonalizada = sesionPersonalizada?.personalizada ?? false
 
   // Ejercicios base
   const ejerciciosBase = useLiveQuery(() =>
@@ -33,73 +94,134 @@ export default function SesionActiva() {
     [rutinaId]
   )
 
-  // Ejercicios de sesión (si aplica)
+  // Ejercicios de sesión personalizada
   const ejerciciosDeSesion = useLiveQuery(async () => {
-    if (!sesionId || !esPersonalizada) return []
-    return await db.ejerciciosSesion.where('sesionId').equals(sesionId).sortBy('orden')
-  }, [sesionId, esPersonalizada])
+    if (!sesionIdParaEjercicios || !esPersonalizada) return []
+    return await db.ejerciciosSesion.where('sesionId').equals(sesionIdParaEjercicios).sortBy('orden')
+  }, [sesionIdParaEjercicios, esPersonalizada])
 
   const ejercicios = esPersonalizada ? ejerciciosDeSesion : ejerciciosBase
 
-  // Sets registrados de esta sesión
-  const setsRegistrados = useLiveQuery(() =>
-    sesionId
-      ? db.setsRegistrados.where('sesionId').equals(sesionId).toArray()
-      : Promise.resolve([] as SetRegistrado[]),
-    [sesionId]
-  )
-
+  // ---- Persistir cache en sessionStorage ----
   useEffect(() => {
-    if (sesionIdParam) return   // ya viene con sesión creada
-    const crearSesion = async () => {
-      const id = await db.sesiones.add({
-        rutinaId,
-        fecha: new Date(),
-        completada: false,
-        personalizada: false
-      })
-      setSesionId(id)
-    }
-    if (rutinaId) crearSesion()
-  }, [rutinaId, sesionIdParam])
+    guardarEnStorage(storageKey, setsCache)
+  }, [setsCache, storageKey])
 
-  const getSet = (ejercicioId: number, numeroSet: number): SetRegistrado | undefined => {
-    return setsRegistrados?.find(
-      s => s.ejercicioId === ejercicioId && s.numeroSet === numeroSet
-    )
+  // ---- Protección contra salida accidental: beforeunload ----
+  useEffect(() => {
+    if (!hayDatos) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hayDatos])
+
+  // ---- Protección contra botón atrás del navegador/gesto ----
+  useEffect(() => {
+    if (!hayDatos) return
+    // Añadir entrada extra en el historial para interceptar el gesto "atrás"
+    window.history.pushState({ sesionActiva: true }, '')
+    const handlePopState = () => {
+      // Cuando el usuario presiona atrás, mostramos el modal en vez de navegar
+      setMostrarModalSalida(true)
+      // Re-push para que el siguiente "atrás" también sea interceptado
+      window.history.pushState({ sesionActiva: true }, '')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [hayDatos])
+
+  // ---- Funciones del cache ----
+  const getSet = (ejercicioId: number, numeroSet: number): SetCache | undefined => {
+    return setsCache[makeSetKey(ejercicioId, numeroSet)]
   }
 
-  const guardarSet = async (
+  const actualizarSet = (
     ejercicioId: number,
     numeroSet: number,
     peso: number,
     reps: number,
     completado: boolean
   ) => {
-    if (!sesionId) return
-    const existente = getSet(ejercicioId, numeroSet)
-    if (existente?.id) {
-      await db.setsRegistrados.update(existente.id, { peso, reps, completado })
-    } else {
-      await db.setsRegistrados.add({
-        sesionId,
-        ejercicioId,
-        numeroSet,
-        peso,
-        reps,
-        completado
-      })
-    }
+    setSetsCache(prev => ({
+      ...prev,
+      [makeSetKey(ejercicioId, numeroSet)]: { peso, reps, completado }
+    }))
   }
 
+  // ---- Finalizar: persistir TODO a DB en una transacción ----
   const finalizarSesion = async () => {
-    if (!sesionId) return
-    await db.sesiones.update(sesionId, { completada: true })
+    if (!ejercicios || ejercicios.length === 0) return
+
+    await db.transaction('rw', db.sesiones, db.setsRegistrados, async () => {
+      let sesionId: number
+
+      if (sesionIdParaEjercicios) {
+        // Sesión personalizada: ya existe, la marcamos completada
+        await db.sesiones.update(sesionIdParaEjercicios, { completada: true })
+        sesionId = sesionIdParaEjercicios
+      } else {
+        // Sesión normal: crear nueva
+        sesionId = await db.sesiones.add({
+          rutinaId,
+          fecha: new Date(),
+          completada: true,
+          personalizada: false
+        })
+      }
+
+      // Guardar todos los sets del cache
+      const setsParaGuardar = Object.entries(setsCache)
+        .map(([key, set]) => {
+          const [ejId, numSet] = key.split('-').map(Number)
+          return {
+            sesionId,
+            ejercicioId: ejId,
+            numeroSet: numSet,
+            peso: set.peso,
+            reps: set.reps,
+            completado: set.completado
+          }
+        })
+
+      if (setsParaGuardar.length > 0) {
+        await db.setsRegistrados.bulkAdd(setsParaGuardar)
+      }
+    })
+
+    // Limpiar cache
+    limpiarStorage(storageKey)
+    setSetsCache({})
+
     navigate('/historial')
   }
 
+  // ---- Confirmar salida ----
+  const confirmarSalida = () => {
+    limpiarStorage(storageKey)
+    setSetsCache({})
+    setMostrarModalSalida(false)
+    // Navegar atrás (saltando la entrada extra que pusimos)
+    navigate(-1)
+  }
+
+  const cancelarSalida = () => {
+    setMostrarModalSalida(false)
+  }
+
+  // Botón de volver: muestra confirmación si hay datos
+  const handleVolver = () => {
+    if (hayDatos) {
+      setMostrarModalSalida(true)
+    } else {
+      navigate(-1)
+    }
+  }
+
+  // ---- Cálculos de progreso ----
   const totalSets = ejercicios?.reduce((acc, e) => acc + e.setsObjetivo, 0) ?? 0
-  const setsCompletados = setsRegistrados?.filter(s => s.completado).length ?? 0
+  const setsCompletados = Object.values(setsCache).filter(s => s.completado).length
   const progreso = totalSets > 0 ? Math.round((setsCompletados / totalSets) * 100) : 0
 
   if (!rutina || !ejercicios) {
@@ -107,32 +229,37 @@ export default function SesionActiva() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-4 mb-6 pt-6">
-        <button onClick={() => navigate(-1)} className="neu-button p-3">
-          <ArrowLeft size={20} className="text-slate-600" />
-        </button>
-        <div className="flex-1">
-          <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">
-            Entrenando · {rutina.dia}
-            {esPersonalizada && <span className="ml-1">· Personalizada</span>}
-          </p>
-          <h1 className="text-xl font-bold text-slate-700 mt-1 leading-tight">
-            {rutina.grupoMuscular}
-          </h1>
+    <div className="pb-8 min-h-screen" style={{ backgroundColor: '#e0e5ec' }}>
+      {/* Sticky header + barra de progreso */}
+      <div className="sticky top-0 z-20 px-6 pt-6 pb-4" style={{ backgroundColor: '#e0e5ec' }}>
+        <div className="flex items-center gap-4 mb-4">
+          <button onClick={handleVolver} className="neu-button p-3">
+            <ArrowLeft size={20} className="text-slate-600" />
+          </button>
+          <div className="flex-1">
+            <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">
+              Entrenando · {rutina.dia}
+              {esPersonalizada && <span className="ml-1">· Personalizada</span>}
+            </p>
+            <h1 className="text-xl font-bold text-slate-700 mt-1 leading-tight">
+              {rutina.grupoMuscular}
+            </h1>
+          </div>
+        </div>
+
+        <div className="neu-inset p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">Progreso</p>
+            <p className="text-slate-700 font-semibold">
+              {setsCompletados} / {totalSets} sets
+            </p>
+          </div>
+          <div className="text-2xl font-bold text-slate-700">{progreso}%</div>
         </div>
       </div>
 
-      <div className="neu-inset p-4 mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">Progreso</p>
-          <p className="text-slate-700 font-semibold">
-            {setsCompletados} / {totalSets} sets
-          </p>
-        </div>
-        <div className="text-2xl font-bold text-slate-700">{progreso}%</div>
-      </div>
-
+      {/* Contenido scrollable */}
+      <div className="px-6">
       <div className="space-y-5 mb-6">
         {ejercicios.map((ej) => (
           <div key={ej.id} className="neu-raised p-5">
@@ -159,7 +286,7 @@ export default function SesionActiva() {
                   repsObjetivo={ej.repsObjetivo}
                   registro={getSet(ej.id!, numSet)}
                   onGuardar={(peso, reps, completado) =>
-                    guardarSet(ej.id!, numSet, peso, reps, completado)
+                    actualizarSet(ej.id!, numSet, peso, reps, completado)
                   }
                 />
               ))}
@@ -175,10 +302,54 @@ export default function SesionActiva() {
         <Flag size={20} />
         Finalizar entrenamiento
       </button>
+      </div>
+
+      {/* Modal de confirmación de salida */}
+      {mostrarModalSalida && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+          onClick={cancelarSalida}
+        >
+          <div
+            className="w-full max-w-sm p-6 rounded-3xl"
+            style={{ backgroundColor: '#e0e5ec' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center mb-4">
+              <div className="neu-inset w-14 h-14 rounded-full flex items-center justify-center">
+                <AlertTriangle size={28} className="text-orange-500" />
+              </div>
+            </div>
+            <h3 className="text-center text-slate-700 font-bold text-lg mb-2">
+              ¿Salir del entrenamiento?
+            </h3>
+            <p className="text-center text-slate-500 text-sm mb-6 leading-relaxed">
+              Tienes <span className="font-semibold text-slate-700">{setsCompletados} sets</span> registrados.
+              Si sales, perderás todo el progreso de esta sesión.
+            </p>
+
+            <button
+              onClick={cancelarSalida}
+              className="neu-raised w-full p-4 mb-3 text-slate-700 font-semibold text-sm"
+            >
+              Seguir entrenando
+            </button>
+            <button
+              onClick={confirmarSalida}
+              className="neu-button w-full py-3 text-red-500 text-sm font-medium"
+            >
+              Salir y perder progreso
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
+// ============================================================
+// SetRow — Componente de cada set individual
+// ============================================================
 function SetRow({
   numeroSet,
   registro,
@@ -187,7 +358,7 @@ function SetRow({
   onGuardar
 }: {
   numeroSet: number
-  registro?: SetRegistrado
+  registro?: SetCache
   grupoMuscular?: string
   repsObjetivo: string
   onGuardar: (peso: number, reps: number, completado: boolean) => void

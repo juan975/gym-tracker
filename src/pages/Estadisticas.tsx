@@ -5,9 +5,10 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { db } from '../db/database'
 
 export default function Estadisticas() {
-  const sesiones = useLiveQuery(() => 
-    db.sesiones.where('completada').equals(1).toArray()
-  )
+  const sesiones = useLiveQuery(async () => {
+    const todas = await db.sesiones.toArray()
+    return todas.filter(s => s.completada === true)
+  })
   const sets = useLiveQuery(() => db.setsRegistrados.toArray())
   const ejercicios = useLiveQuery(() => db.ejercicios.toArray())
   const rutinas = useLiveQuery(() => db.rutinas.toArray())

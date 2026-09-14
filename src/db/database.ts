@@ -48,12 +48,19 @@ export interface SetRegistrado {
   completado: boolean
 }
 
+export interface RegistroCreatina {
+  id?: number
+  fecha: string              // ISO date string 'YYYY-MM-DD' (una entrada por día)
+  tomada: boolean
+}
+
 class GymDatabase extends Dexie {
   rutinas!: Table<Rutina, number>
   ejercicios!: Table<Ejercicio, number>
   ejerciciosSesion!: Table<EjercicioSesion, number>
   sesiones!: Table<Sesion, number>
   setsRegistrados!: Table<SetRegistrado, number>
+  creatina!: Table<RegistroCreatina, number>
 
   constructor() {
     super('GymTrackerDB')
@@ -63,6 +70,14 @@ class GymDatabase extends Dexie {
       ejerciciosSesion: '++id, sesionId, orden',
       sesiones: '++id, rutinaId, fecha, completada',
       setsRegistrados: '++id, sesionId, ejercicioId'
+    })
+    this.version(3).stores({
+      rutinas: '++id, nombre, dia, creadaEn',
+      ejercicios: '++id, rutinaId, orden',
+      ejerciciosSesion: '++id, sesionId, orden',
+      sesiones: '++id, rutinaId, fecha, completada',
+      setsRegistrados: '++id, sesionId, ejercicioId',
+      creatina: '++id, &fecha, tomada'
     })
   }
 }

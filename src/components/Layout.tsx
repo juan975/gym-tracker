@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Home, Dumbbell, History, BarChart3 } from 'lucide-react'
+import { Home, Dumbbell, History, BarChart3, Pill } from 'lucide-react'
 
 export default function Layout() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -30,6 +30,10 @@ export default function Layout() {
         <NavLink to="/historial" className={linkClass}>
           <History size={18} />
           <span>Historial</span>
+        </NavLink>
+        <NavLink to="/creatina" className={linkClass}>
+          <Pill size={18} />
+          <span>Creatina</span>
         </NavLink>
       </nav>
     </div>
