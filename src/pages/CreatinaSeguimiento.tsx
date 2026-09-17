@@ -4,8 +4,11 @@ import { Flame, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { db } from '../db/database'
 import { creatinaService, toISO, getDiasDelMes } from '../services/creatinaService'
 import { MESES, NOMBRES_DIAS_CALENDARIO } from '../constants'
+import { useAuth } from '../context/AuthContext'
+import PageHeader from '../components/PageHeader'
 
 export default function CreatinaSeguimiento() {
+  const { user } = useAuth()
   const hoy = new Date()
   const [mesActual, setMesActual] = useState({ año: hoy.getFullYear(), mes: hoy.getMonth() })
 
@@ -50,13 +53,13 @@ export default function CreatinaSeguimiento() {
 
   return (
     <div className="p-6">
-      <div className="mb-8 pt-6">
-        <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">Suplementación</p>
-        <h1 className="text-3xl font-bold text-slate-700 mt-1">Creatina</h1>
-      </div>
+      <PageHeader 
+        titulo="Creatina" 
+        mostrarBienvenida={true} 
+      />
 
       <button
-        onClick={() => creatinaService.toggleDia(hoyISO)}
+        onClick={() => creatinaService.toggleDia(hoyISO, user?.uid)}
         className={`w-full p-5 mb-6 flex items-center justify-center gap-3 font-semibold transition-all ${
           tomadaHoy ? 'neu-active text-green-600' : 'neu-raised text-slate-700'
         }`}
@@ -118,7 +121,7 @@ export default function CreatinaSeguimiento() {
             return (
               <button
                 key={iso}
-                onClick={() => !esFuturo && creatinaService.toggleDia(iso)}
+                onClick={() => !esFuturo && creatinaService.toggleDia(iso, user?.uid)}
                 disabled={esFuturo}
                 className={`h-10 rounded-xl flex items-center justify-center text-xs font-semibold transition-all ${
                   tomada ? 'neu-active text-green-600' : esHoy ? 'neu-inset text-slate-700' : esFuturo ? 'text-slate-400 opacity-40' : 'neu-inset text-slate-600'

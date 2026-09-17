@@ -2,58 +2,87 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #e0e5ec;
-  --color-text-dark: #2d3748;
-  --color-text-muted: #8a94a6;
   --font-sans: 'Poppins', sans-serif;
 }
 
+:root, [data-theme="claro"] {
+  --bg-color: #e0e5ec;
+  
+  --shadow-light: #ffffff;
+  --shadow-dark: #b8bcc2;
+}
+
+[data-theme="oscuro"] {
+  --bg-color: #1a1c23; /* A nice dark greyish-blue */
+  
+  --shadow-light: #252832;
+  --shadow-dark: #0f1014;
+  
+  /* Redefine slate colors for dark mode */
+  --color-slate-700: #f1f5f9;
+  --color-slate-600: #e2e8f0;
+  --color-slate-500: #94a3b8;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-900: #020617;
+  
+  /* Overrides for specific colors */
+  --color-green-600: #4ade80;
+  --color-green-500: #22c55e;
+  --color-red-600: #f87171;
+  --color-red-500: #ef4444;
+  --color-orange-500: #fb923c;
+  --color-blue-500: #60a5fa;
+}
+
 body {
-  background-color: #e0e5ec;
-  color: #2d3748;
+  background-color: var(--bg-color);
+  color: var(--color-slate-700);
   font-family: 'Poppins', sans-serif;
   font-weight: 400;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Elemento elevado (cards, botones) */
 .neu-raised {
-  background: #e0e5ec;
+  background: var(--bg-color);
   box-shadow: 
-    9px 9px 18px #b8bcc2,
-    -9px -9px 18px #ffffff;
+    9px 9px 18px var(--shadow-dark),
+    -9px -9px 18px var(--shadow-light);
   border-radius: 20px;
 }
 
 /* Elemento hundido (inputs, contenedores internos) */
 .neu-inset {
-  background: #e0e5ec;
+  background: var(--bg-color);
   box-shadow: 
-    inset 6px 6px 12px #b8bcc2,
-    inset -6px -6px 12px #ffffff;
+    inset 6px 6px 12px var(--shadow-dark),
+    inset -6px -6px 12px var(--shadow-light);
   border-radius: 20px;
 }
 
 /* Botón presionable */
 .neu-button {
-  background: #e0e5ec;
+  background: var(--bg-color);
   box-shadow: 
-    6px 6px 12px #b8bcc2,
-    -6px -6px 12px #ffffff;
+    6px 6px 12px var(--shadow-dark),
+    -6px -6px 12px var(--shadow-light);
   border-radius: 16px;
   transition: all 0.2s ease;
 }
 
 .neu-button:active {
   box-shadow: 
-    inset 5px 5px 10px #b8bcc2,
-    inset -5px -5px 10px #ffffff;
+    inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
 }
 
 /* Estado activo (nav) */
 .neu-active {
   box-shadow: 
-    inset 5px 5px 10px #b8bcc2,
-    inset -5px -5px 10px #ffffff;
+    inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
 }
 
 .scrollbar-hide {
@@ -68,3 +97,10 @@ body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Control del logo (Modo Claro/Oscuro) */
+.logo-light { display: block; }
+.logo-dark { display: none; }
+
+[data-theme="oscuro"] .logo-light { display: none; }
+[data-theme="oscuro"] .logo-dark { display: block; }

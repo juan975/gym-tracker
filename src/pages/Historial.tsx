@@ -5,8 +5,11 @@ import { db } from '../db/database'
 import { historialService } from '../services/historialService'
 import { sesionService } from '../services/sesionService'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import { useAuth } from '../context/AuthContext'
+import PageHeader from '../components/PageHeader'
 
 export default function Historial() {
+  const { user } = useAuth()
   const sesiones = useLiveQuery(() => db.sesiones.toArray())
   const rutinas = useLiveQuery(() => db.rutinas.toArray())
   const sets = useLiveQuery(() => db.setsRegistrados.toArray())
@@ -28,7 +31,7 @@ export default function Historial() {
   const [confirmarBorrado, setConfirmarBorrado] = useState<number | null>(null)
 
   const borrarSesion = async (sesionId: number) => {
-    await sesionService.borrarSesion(sesionId)
+    await sesionService.borrarSesion(sesionId, user?.uid)
     setConfirmarBorrado(null)
     if (sesionDetalle === sesionId) setSesionDetalle(null)
   }
@@ -107,10 +110,10 @@ export default function Historial() {
   // ---- Vista de lista ----
   return (
     <div className="p-6">
-      <div className="mb-8 pt-6">
-        <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">Progreso</p>
-        <h1 className="text-3xl font-bold text-slate-700 mt-1">Historial</h1>
-      </div>
+      <PageHeader 
+        titulo="Historial" 
+        mostrarBienvenida={true} 
+      />
 
       {sesionesCompletadas.length === 0 ? (
         <div className="neu-inset p-8 text-center">

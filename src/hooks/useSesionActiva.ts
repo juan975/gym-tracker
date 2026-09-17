@@ -23,7 +23,7 @@ function limpiarStorage(key: string) {
   try { sessionStorage.removeItem(key) } catch {}
 }
 
-export function useSesionActiva(rutinaId: number, sesionIdParam: string | null) {
+export function useSesionActiva(rutinaId: number, sesionIdParam: string | null, userId?: string | null) {
   const navigate = useNavigate()
   const storageKey = getStorageKey(rutinaId, sesionIdParam)
   
@@ -71,7 +71,7 @@ export function useSesionActiva(rutinaId: number, sesionIdParam: string | null) 
 
     const sesionIdParaEjercicios = sesionIdParam ? Number(sesionIdParam) : null
     
-    await sesionService.finalizarSesion(rutinaId, setsCache, sesionIdParaEjercicios)
+    await sesionService.finalizarSesion(rutinaId, setsCache, sesionIdParaEjercicios, userId)
     
     limpiarStorage(storageKey)
     setSetsCache({})

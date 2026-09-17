@@ -3,6 +3,7 @@ import { Flame, Calendar, TrendingUp } from 'lucide-react'
 import { db } from '../db/database'
 import { useEstadisticas } from '../hooks/useEstadisticas'
 import ProgresionFuerza from '../components/estadisticas/ProgresionFuerza'
+import PageHeader from '../components/PageHeader'
 
 export default function Estadisticas() {
   const {
@@ -24,10 +25,10 @@ export default function Estadisticas() {
 
   return (
     <div className="p-6">
-      <div className="mb-8 pt-6">
-        <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">Progreso</p>
-        <h1 className="text-3xl font-bold text-slate-700 mt-1">Estadísticas</h1>
-      </div>
+      <PageHeader 
+        titulo="Estadísticas" 
+        mostrarBienvenida={true} 
+      />
 
       {/* KPIs superiores */}
       <div className="grid grid-cols-2 gap-4 mb-6">

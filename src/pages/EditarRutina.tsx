@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react'
 import { db, type Ejercicio } from '../db/database'
+import { rutinaService } from '../services/rutinaService'
+import { useAuth } from '../context/AuthContext'
 
 type EjercicioEditable = Omit<Ejercicio, 'id' | 'rutinaId'> & { 
   id?: number
@@ -15,6 +17,7 @@ export default function EditarRutina() {
   const navigate = useNavigate()
   const rutinaId = Number(id)
   const modo = searchParams.get('modo') as 'permanente' | 'sesion' | null
+  const { user } = useAuth()
 
   const rutina = useLiveQuery(() => db.rutinas.get(rutinaId), [rutinaId])
   const ejerciciosDB = useLiveQuery(() =>
@@ -84,6 +87,8 @@ export default function EditarRutina() {
           orden: i + 1
         })))
       })
+      // Sincronizar con Firestore después de edición permanente
+      await rutinaService.sincronizarDespuesDeEdicion(rutinaId, user?.uid)
       navigate(`/rutina/${rutinaId}`)
     } else if (modo === 'sesion') {
       // Crear sesión personalizada y sus ejercicios de sesión

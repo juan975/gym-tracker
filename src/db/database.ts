@@ -6,6 +6,8 @@ export interface Rutina {
   dia?: string
   grupoMuscular?: string
   creadaEn: Date
+  firestoreId?: string
+  updatedAt?: number
 }
 
 export interface Ejercicio {
@@ -16,6 +18,8 @@ export interface Ejercicio {
   repsObjetivo: string
   notas?: string
   orden: number
+  firestoreId?: string
+  updatedAt?: number
 }
 
 // Nuevo: override temporal por sesión
@@ -28,6 +32,8 @@ export interface EjercicioSesion {
   repsObjetivo: string
   notas?: string
   orden: number
+  firestoreId?: string
+  updatedAt?: number
 }
 
 export interface Sesion {
@@ -36,6 +42,8 @@ export interface Sesion {
   fecha: Date
   completada: boolean
   personalizada: boolean     // true si se editó la rutina solo para esta sesión
+  firestoreId?: string
+  updatedAt?: number
 }
 
 export interface SetRegistrado {
@@ -46,12 +54,22 @@ export interface SetRegistrado {
   peso: number
   reps: number
   completado: boolean
+  firestoreId?: string
+  updatedAt?: number
 }
 
 export interface RegistroCreatina {
   id?: number
   fecha: string              // ISO date string 'YYYY-MM-DD' (una entrada por día)
   tomada: boolean
+  firestoreId?: string
+  updatedAt?: number
+}
+
+export interface Preferencia {
+  id?: number
+  clave: string
+  valor: string              // JSON serializado
 }
 
 class GymDatabase extends Dexie {
@@ -61,6 +79,7 @@ class GymDatabase extends Dexie {
   sesiones!: Table<Sesion, number>
   setsRegistrados!: Table<SetRegistrado, number>
   creatina!: Table<RegistroCreatina, number>
+  preferencias!: Table<Preferencia, number>
 
   constructor() {
     super('GymTrackerDB')
@@ -78,6 +97,16 @@ class GymDatabase extends Dexie {
       sesiones: '++id, rutinaId, fecha, completada',
       setsRegistrados: '++id, sesionId, ejercicioId',
       creatina: '++id, &fecha, tomada'
+    })
+    // v4: Agregar campos de sync con Firestore + tabla de preferencias
+    this.version(4).stores({
+      rutinas: '++id, nombre, dia, creadaEn, firestoreId',
+      ejercicios: '++id, rutinaId, orden, firestoreId',
+      ejerciciosSesion: '++id, sesionId, orden, firestoreId',
+      sesiones: '++id, rutinaId, fecha, completada, firestoreId',
+      setsRegistrados: '++id, sesionId, ejercicioId, firestoreId',
+      creatina: '++id, &fecha, tomada, firestoreId',
+      preferencias: '++id, &clave'
     })
   }
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Play, Dumbbell } from 'lucide-react'
 import { db } from '../db/database'
 import { useState } from 'react'
 import { Edit, Zap, Infinity as InfinityIcon } from 'lucide-react'
+import UserMenu from '../components/UserMenu'
 
 export default function RutinaDetalle({ 
   rutinaId: rutinaIdProp,
@@ -43,6 +44,7 @@ export default function RutinaDetalle({
             <ArrowLeft size={20} className="text-slate-600" />
             </button>
         )}
+        <UserMenu />
         <div className="flex-1">
             <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">
             {rutina.dia}
@@ -114,8 +116,7 @@ export default function RutinaDetalle({
             onClick={() => setModalEditar(false)}
           >
             <div 
-              className="w-full max-w-sm p-6 rounded-3xl"
-              style={{ backgroundColor: '#e0e5ec' }}
+              className="w-full max-w-sm p-6 rounded-3xl neu-raised"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-center text-slate-700 font-bold text-lg mb-1">

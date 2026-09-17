@@ -6,12 +6,14 @@ import { useSesionActiva } from '../hooks/useSesionActiva'
 import SetRow from '../components/sesion/SetRow'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { THEME } from '../constants'
+import { useAuth } from '../context/AuthContext'
 
 export default function SesionActiva() {
   const { rutinaId: rutinaIdParam } = useParams()
   const [searchParams] = useSearchParams()
   const rutinaId = Number(rutinaIdParam)
   const sesionIdParam = searchParams.get('sesionId')
+  const { user } = useAuth()
 
   const {
     mostrarModalSalida,
@@ -22,7 +24,7 @@ export default function SesionActiva() {
     cancelarSalida,
     handleVolver,
     setsCompletados
-  } = useSesionActiva(rutinaId, sesionIdParam)
+  } = useSesionActiva(rutinaId, sesionIdParam, user?.uid)
 
   const sesionIdParaEjercicios = sesionIdParam ? Number(sesionIdParam) : null
 

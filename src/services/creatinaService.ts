@@ -1,4 +1,5 @@
 import { db } from '../db/database'
+import { syncService } from './syncService'
 
 export function toISO(date: Date): string {
   return date.toISOString().split('T')[0]
@@ -14,12 +15,21 @@ export function getDiasDelMes(año: number, mes: number): Date[] {
 }
 
 export const creatinaService = {
-  toggleDia: async (fecha: string) => {
+  toggleDia: async (fecha: string, userId?: string | null) => {
     const existente = await db.creatina.where('fecha').equals(fecha).first()
     if (existente) {
-      await db.creatina.update(existente.id!, { tomada: !existente.tomada })
+      await db.creatina.update(existente.id!, { tomada: !existente.tomada, updatedAt: Date.now() })
     } else {
-      await db.creatina.add({ fecha, tomada: true })
+      await db.creatina.add({ fecha, tomada: true, updatedAt: Date.now() })
+    }
+
+    // Sync a Firestore
+    if (userId) {
+      try {
+        await syncService.sincronizarCreatina(userId, fecha)
+      } catch (err) {
+        console.error('Error sincronizando creatina:', err)
+      }
     }
   },
 

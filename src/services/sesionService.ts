@@ -1,26 +1,29 @@
 import { db } from '../db/database'
+import { syncService } from './syncService'
 import type { SetsMap } from '../types'
 
 export const sesionService = {
   finalizarSesion: async (
     rutinaId: number, 
     setsCache: SetsMap, 
-    sesionIdPersonalizada: number | null
+    sesionIdPersonalizada: number | null,
+    userId?: string | null
   ) => {
-    return db.transaction('rw', db.sesiones, db.setsRegistrados, async () => {
-      let sesionId: number
+    const sesionId = await db.transaction('rw', db.sesiones, db.setsRegistrados, async () => {
+      let sid: number
 
       if (sesionIdPersonalizada) {
         // Sesión personalizada: ya existe, la marcamos completada
-        await db.sesiones.update(sesionIdPersonalizada, { completada: true })
-        sesionId = sesionIdPersonalizada
+        await db.sesiones.update(sesionIdPersonalizada, { completada: true, updatedAt: Date.now() })
+        sid = sesionIdPersonalizada
       } else {
         // Sesión normal: crear nueva
-        sesionId = await db.sesiones.add({
+        sid = await db.sesiones.add({
           rutinaId,
           fecha: new Date(),
           completada: true,
-          personalizada: false
+          personalizada: false,
+          updatedAt: Date.now(),
         })
       }
 
@@ -29,12 +32,13 @@ export const sesionService = {
         .map(([key, set]) => {
           const [ejId, numSet] = key.split('-').map(Number)
           return {
-            sesionId,
+            sesionId: sid,
             ejercicioId: ejId,
             numeroSet: numSet,
             peso: set.peso,
             reps: set.reps,
-            completado: set.completado
+            completado: set.completado,
+            updatedAt: Date.now(),
           }
         })
 
@@ -42,11 +46,32 @@ export const sesionService = {
         await db.setsRegistrados.bulkAdd(setsParaGuardar)
       }
       
-      return sesionId
+      return sid
     })
+
+    // Sync batch a Firestore (solo al finalizar, no en cada write)
+    if (userId) {
+      try {
+        await syncService.subirSesionCompleta(userId, sesionId)
+      } catch (err) {
+        console.error('Error sincronizando sesión a Firestore:', err)
+        // No falla la operación local — se intentará de nuevo
+      }
+    }
+
+    return sesionId
   },
 
-  borrarSesion: async (sesionId: number) => {
+  borrarSesion: async (sesionId: number, userId?: string | null) => {
+    // Sync a Firestore primero (necesitamos los datos antes de borrar)
+    if (userId) {
+      try {
+        await syncService.borrarSesion(userId, sesionId)
+      } catch (err) {
+        console.error('Error borrando sesión de Firestore:', err)
+      }
+    }
+
     return db.transaction('rw', db.sesiones, db.setsRegistrados, db.ejerciciosSesion, async () => {
       await db.setsRegistrados.where('sesionId').equals(sesionId).delete()
       await db.ejerciciosSesion.where('sesionId').equals(sesionId).delete()
